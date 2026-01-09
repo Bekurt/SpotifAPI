@@ -5,20 +5,22 @@ open System.Net.Http
 open System.Text.Json
 open System.IO
 open Auth
-open System
 
 let client = new HttpClient()
 
-let getToken () = File.ReadAllText "./token.json"
+let getToken () =
+    File.ReadAllText "./token.json" |> JsonSerializer.Deserialize<AccessToken>
 
 let setBearerToken (client: HttpClient) =
-    client.DefaultRequestHeaders.Authorization <- Headers.AuthenticationHeaderValue("Bearer", getToken ())
+    let token = getToken ()
+    client.DefaultRequestHeaders.Authorization <- Headers.AuthenticationHeaderValue("Bearer", token.access_token)
 
 let rec GET (url: string) =
     printfn "Sending GET request to %s" url
 
     task {
         client |> setBearerToken
+        printfn "HEADER: %s" (client.DefaultRequestHeaders.Authorization.ToString())
 
         let! response = client.GetAsync url
 
@@ -27,8 +29,16 @@ let rec GET (url: string) =
             | HttpStatusCode.Unauthorized ->
                 refreshToken ()
                 GET url
-            | HttpStatusCode.OK -> response.Content.ToString()
-            | otherCode -> otherCode.ToString() |> sprintf "Failed with %s code"
+            | HttpStatusCode.OK ->
+                response.Content.ReadAsStringAsync()
+                |> Async.AwaitTask
+                |> Async.RunSynchronously
+            | otherCode ->
+                (otherCode.ToString(),
+                 response.Content.ReadAsStringAsync()
+                 |> Async.AwaitTask
+                 |> Async.RunSynchronously)
+                ||> sprintf "Failed with %s code - %s"
 
     }
     |> Async.AwaitTask

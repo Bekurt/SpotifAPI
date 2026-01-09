@@ -8,6 +8,8 @@
   <ItemGroup>
     <Compile Include="Auth.fs" />
     <Compile Include="HttpMethods.fs" />
+    <Compile Include="Parsers.fs" />
+    <Compile Include="Endpoints.fs" />
   </ItemGroup>
 
 </Project>
