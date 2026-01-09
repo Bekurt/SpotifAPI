@@ -111,6 +111,12 @@ let refreshToken () =
     let oldToken =
         File.ReadAllText "./token.json" |> JsonSerializer.Deserialize<AccessToken>
 
+    let client_id = Environment.GetEnvironmentVariable "SPOTIFY_CLIENT_ID"
+    let client_secret = Environment.GetEnvironmentVariable "SPOTIFY_CLIENT_SECRET"
+
+    let encodedSecrets =
+        Convert.ToBase64String(Encoding.UTF8.GetBytes(sprintf "%s:%s" client_id client_secret))
+
     task {
         use http = new HttpClient()
 
@@ -122,12 +128,20 @@ let refreshToken () =
               KeyValuePair<string, string>("refresh_token", oldToken.refresh_token) ]
 
         request.Content <- new FormUrlEncodedContent(form)
+        request.Headers.Authorization <- Headers.AuthenticationHeaderValue("Basic", encodedSecrets)
 
-        use! resp = request |> http.SendAsync
+        use! response = request |> http.SendAsync
+        let! body = response.Content.ReadAsStringAsync()
 
-        let! body = resp.Content.ReadAsStringAsync()
+        if response.IsSuccessStatusCode then
+            File.WriteAllText("./token.json", body)
+        else
+            (response.StatusCode.ToString(),
+             response.Content.ReadAsStringAsync()
+             |> Async.AwaitTask
+             |> Async.RunSynchronously)
+            ||> printfn "Failed with %s code - %s"
 
-        File.WriteAllText("./token.json", body)
 
     }
     |> Async.AwaitTask
