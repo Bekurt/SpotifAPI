@@ -1,5 +1,7 @@
 module Parsers
 
+open System.Text.Json
+
 type PagesOf<'Item> =
     { limit: int
       next: string
@@ -35,11 +37,19 @@ type AlbumTrack =
       name: string
       track_number: int }
 
+
 type SavedTrack = { added_at: string; track: Track }
+
+type Playlist =
+    { id: string
+      name: string
+      tracks: PagesOf<SavedTrack> }
 
 type TrackSearch = { tracks: PagesOf<Track> }
 type AlbumSearch = { albums: PagesOf<Album> }
 type ArtistSearch = { artists: PagesOf<Artist> }
+type PlaylistSearch = { playlists: PagesOf<Playlist> }
+
 
 type ParsedItem =
     { idx: int
@@ -50,42 +60,5 @@ type ParsedItem =
 
 type ParsedResponse = list<ParsedItem>
 
-let albumParser (album: Album) =
-    { album_type = album.album_type
-      artists = album.artists |> List.map (fun art -> { id = art.id; name = art.name })
-      id = album.id
-      name = album.name
-      total_tracks = album.total_tracks
-      release_date = album.release_date }
-
-let artistParser (artist: Artist) = { id = artist.id; name = artist.name }
-
-let trackParser (track: Track) =
-    { artists = track.artists |> List.map artistParser
-      album = track.album |> albumParser
-      disc_number = track.disc_number
-      duration_ms = track.duration_ms
-      id = track.id
-      name = track.name
-      track_number = track.track_number }
-
-let albumTrackParser (track: AlbumTrack) =
-    { artists = track.artists |> List.map artistParser
-      disc_number = track.disc_number
-      duration_ms = track.duration_ms
-      id = track.id
-      name = track.name
-      track_number = track.track_number }
-
-let savedTrackParser (savedTrack: SavedTrack) =
-    let track = savedTrack.track
-
-    { added_at = savedTrack.added_at
-      track =
-        { artists = track.artists |> List.map artistParser
-          album = track.album |> albumParser
-          disc_number = track.disc_number
-          duration_ms = track.duration_ms
-          id = track.id
-          name = track.name
-          track_number = track.track_number } }
+let parseResponse<'T> (APIresponse: string) =
+    JsonSerializer.Deserialize<'T> APIresponse
