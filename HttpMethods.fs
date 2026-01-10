@@ -116,10 +116,7 @@ let rec DELETE (url: string) =
             | HttpStatusCode.Unauthorized ->
                 refreshToken ()
                 DELETE url
-            | HttpStatusCode.OK ->
-                response.Content.ReadAsStringAsync()
-                |> Async.AwaitTask
-                |> Async.RunSynchronously
+            | HttpStatusCode.OK -> "DELETE succesful"
             | otherCode ->
                 (otherCode.ToString(),
                  response.Content.ReadAsStringAsync()

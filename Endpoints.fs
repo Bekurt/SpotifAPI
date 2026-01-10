@@ -118,3 +118,13 @@ let rec getAllSavedTracks (page: PagesOf<SavedTrack> option) =
         |> prependPagesOf<SavedTrack> previousPage.items
         |> Some
         |> getAllSavedTracks
+
+let deleteSavedTracks (trackIds: list<string>) =
+    trackIds
+    |> List.chunkBySize 50
+    |> List.iter (fun chunk ->
+        ("", chunk)
+        ||> List.fold (fun query id -> id |> sprintf "%s,%s" query)
+        |> sprintf "%s/me/tracks?ids=%s" BASE_URL
+        |> DELETE
+        |> printfn "%s")
