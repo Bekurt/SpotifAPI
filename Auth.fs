@@ -97,11 +97,15 @@ let requestAuthorization () =
             request.Headers.Authorization <- Headers.AuthenticationHeaderValue("Basic", encodedSecrets)
 
             use! resp = request |> http.SendAsync
-
             let! body = resp.Content.ReadAsStringAsync()
 
-            File.WriteAllText("./token.json", body)
+            let options = JsonSerializerOptions(WriteIndented = true)
 
+            let serBody =
+                JsonSerializer.Deserialize<AccessToken>(body, options)
+                |> JsonSerializer.Serialize
+
+            File.WriteAllText("./token.json", serBody)
         }
         |> Async.AwaitTask
         |> Async.RunSynchronously
@@ -110,6 +114,8 @@ let refreshToken () =
 
     let oldToken =
         File.ReadAllText "./token.json" |> JsonSerializer.Deserialize<AccessToken>
+
+    printfn "%s" oldToken.refresh_token
 
     let client_id = Environment.GetEnvironmentVariable "SPOTIFY_CLIENT_ID"
     let client_secret = Environment.GetEnvironmentVariable "SPOTIFY_CLIENT_SECRET"
@@ -134,7 +140,19 @@ let refreshToken () =
         let! body = response.Content.ReadAsStringAsync()
 
         if response.IsSuccessStatusCode then
-            File.WriteAllText("./token.json", body)
+            let options = JsonSerializerOptions(WriteIndented = true)
+            let serBody = JsonSerializer.Deserialize<AccessToken>(body, options)
+
+            match serBody.refresh_token with
+            | null
+            | "" ->
+                let newBody =
+                    JsonSerializer.Serialize
+                        { serBody with
+                            access_token = oldToken.access_token }
+
+                File.WriteAllText("./token.json", newBody)
+            | str -> File.WriteAllText("./token.json", JsonSerializer.Serialize str)
         else
             (response.StatusCode.ToString(),
              response.Content.ReadAsStringAsync()
