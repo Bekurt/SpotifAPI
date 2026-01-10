@@ -28,12 +28,12 @@ let rec GET (url: string) =
             | HttpStatusCode.Unauthorized ->
                 refreshToken ()
                 GET url
-            | HttpStatusCode.OK ->
+            | code when int code < 300 && int code >= 200 ->
                 response.Content.ReadAsStringAsync()
                 |> Async.AwaitTask
                 |> Async.RunSynchronously
-            | otherCode ->
-                (otherCode.ToString(),
+            | other ->
+                (other.ToString(),
                  response.Content.ReadAsStringAsync()
                  |> Async.AwaitTask
                  |> Async.RunSynchronously)
@@ -58,12 +58,12 @@ let rec POST<'T> (url: string) (body: 'T) =
             | HttpStatusCode.Unauthorized ->
                 refreshToken ()
                 POST url body
-            | HttpStatusCode.OK ->
+            | code when int code < 300 && int code >= 200 ->
                 response.Content.ReadAsStringAsync()
                 |> Async.AwaitTask
                 |> Async.RunSynchronously
-            | otherCode ->
-                (otherCode.ToString(),
+            | other ->
+                (other.ToString(),
                  response.Content.ReadAsStringAsync()
                  |> Async.AwaitTask
                  |> Async.RunSynchronously)
@@ -88,12 +88,12 @@ let rec PUT<'T> (url: string) (body: 'T) =
             | HttpStatusCode.Unauthorized ->
                 refreshToken ()
                 PUT url body
-            | HttpStatusCode.OK ->
+            | code when int code < 300 && int code >= 200 ->
                 response.Content.ReadAsStringAsync()
                 |> Async.AwaitTask
                 |> Async.RunSynchronously
-            | otherCode ->
-                (otherCode.ToString(),
+            | other ->
+                (other.ToString(),
                  response.Content.ReadAsStringAsync()
                  |> Async.AwaitTask
                  |> Async.RunSynchronously)
@@ -118,13 +118,17 @@ let rec DELETE<'T> (url: string) (body: 'T) =
             | HttpStatusCode.Unauthorized ->
                 refreshToken ()
                 DELETE url body
-            | HttpStatusCode.OK -> "DELETE succesful"
-            | otherCode ->
-                (otherCode.ToString(),
+            | code when int code < 300 && int code >= 200 ->
+                response.Content.ReadAsStringAsync()
+                |> Async.AwaitTask
+                |> Async.RunSynchronously
+            | other ->
+                (other.ToString(),
                  response.Content.ReadAsStringAsync()
                  |> Async.AwaitTask
                  |> Async.RunSynchronously)
                 ||> sprintf "Failed with %s code - %s"
+
 
     }
     |> Async.AwaitTask
