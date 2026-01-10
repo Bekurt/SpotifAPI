@@ -103,19 +103,21 @@ let rec PUT<'T> (url: string) (body: 'T) =
     |> Async.AwaitTask
     |> Async.RunSynchronously
 
-let rec DELETE (url: string) =
+let rec DELETE<'T> (url: string) (body: 'T) =
     printfn "Sending DELETE request to %s" url
 
     task {
         client |> setBearerToken
+        use request = new HttpRequestMessage(HttpMethod.Delete, url)
+        request.Content <- new StringContent(JsonSerializer.Serialize<'T> body)
 
-        let! response = client.GetAsync url
+        use! response = client.SendAsync request
 
         return
             match response.StatusCode with
             | HttpStatusCode.Unauthorized ->
                 refreshToken ()
-                DELETE url
+                DELETE url body
             | HttpStatusCode.OK -> "DELETE succesful"
             | otherCode ->
                 (otherCode.ToString(),

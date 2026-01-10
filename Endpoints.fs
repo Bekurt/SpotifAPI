@@ -126,12 +126,7 @@ let deleteSavedTracks (trackList: list<SavedTrack>) =
     trackList
     |> List.map (fun savedTrack -> savedTrack.track.id)
     |> List.chunkBySize 50
-    |> List.iter (fun chunk ->
-        ("", chunk)
-        ||> List.fold (fun query id -> id |> sprintf "%s,%s" query)
-        |> sprintf "%s/me/tracks?ids=%s" BASE_URL
-        |> DELETE
-        |> printfn "%s")
+    |> List.iter (fun chunk -> {| ids = chunk |} |> DELETE(sprintf "%s/me/tracks" BASE_URL) |> printfn "%s")
 
 let createPlaylist (user: User) (name: string) =
     {| name = name |}
@@ -184,3 +179,30 @@ let rec getAllPlaylistTracks (playlist: Playlist) (page: PageOf<SavedTrack> opti
         |> prependPagesOf<SavedTrack> previousPage.items
         |> Some
         |> getAllPlaylistTracks playlist
+
+type DeletePlaylistTrackBody =
+    { tracks: list<{| uri: string |}>
+      snapshot_id: string }
+
+let rec deletePlaylistTracks (playlist: Playlist) (snap_id: string) (trackList: list<Track>) =
+    let assembleBody (processedChunk: list<{| uri: string |}>) : DeletePlaylistTrackBody =
+        { tracks = processedChunk
+          snapshot_id = snap_id }
+
+    let chunkedList = trackList |> List.chunkBySize 100
+
+    match chunkedList with
+    | first :: rest ->
+        let newState =
+            first
+            |> List.map (fun track -> {| uri = sprintf "spotify:track:%s" track.id |})
+            |> assembleBody
+            |> DELETE<DeletePlaylistTrackBody>(sprintf "%s/playlists/%s/tracks" BASE_URL playlist.id)
+            |> parseResponse<Playlist>
+
+        rest
+        |> List.fold (fun state item -> state @ item) []
+        |> deletePlaylistTracks playlist newState.snapshot_id
+
+        printfn "Chunk DELETE successful"
+    | [] -> printfn "DELETE completed"

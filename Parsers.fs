@@ -45,11 +45,13 @@ type SavedTrack = { added_at: string; track: Track }
 type Playlist =
     { id: string
       name: string
+      snapshot_id: string
       tracks: PageOf<SavedTrack> }
 
 type SimplePlaylist =
     { id: string
       name: string
+      snapshot_id: string
       tracks: {| total: int |} }
 
 type TrackSearch = { tracks: PageOf<Track> }
