@@ -21,9 +21,12 @@ type Item =
 let bindLimitOffset (maxLimit: int) (limit: int) (offset: int) =
     limit |> min maxLimit |> max 0, offset |> max 0
 
-let prependPagesOf<'T> (itemsToPrepend: list<'T>) (page: PagesOf<'T>) =
+let prependPagesOf<'T> (itemsToPrepend: list<'T>) (page: PageOf<'T>) =
     { page with
         items = itemsToPrepend @ page.items }
+
+let getCurrentUser () =
+    BASE_URL |> sprintf "%s/me" |> GET |> parseResponse<User>
 
 let searchAlbum (limit: int) (offset: int) (strToSearch: string) =
     let bLimit, bOffset = bindLimitOffset 50 limit offset
@@ -53,45 +56,45 @@ let searchTrack (limit: int) (offset: int) (strToSearch: string) =
     |> GET
     |> parseResponse<TrackSearch>
 
-let getArtistAlbum (limit: int) (offset: int) (artistId: string) =
+let getArtistAlbum (limit: int) (offset: int) (artist: Artist) =
     let bLimit, bOffset = bindLimitOffset 50 limit offset
 
-    sprintf "%s/artists/%s/albums?include_groups=album&limit=%d&offset=%d" BASE_URL artistId bLimit bOffset
+    sprintf "%s/artists/%s/albums?include_groups=album&limit=%d&offset=%d" BASE_URL artist.id bLimit bOffset
     |> GET
-    |> parseResponse<PagesOf<Album>>
+    |> parseResponse<PageOf<Album>>
 
-let rec getAllArtistAlbums (artistId: string) (page: PagesOf<Album> option) =
+let rec getAllArtistAlbums (artist: Artist) (page: PageOf<Album> option) =
     let previousPage =
         match page with
         | Some page -> page
-        | None -> getArtistAlbum 50 0 artistId
+        | None -> getArtistAlbum 50 0 artist
 
     match previousPage.next with
     | null -> previousPage
     | url ->
         GET url
-        |> parseResponse<PagesOf<Album>>
+        |> parseResponse<PageOf<Album>>
         |> prependPagesOf<Album> previousPage.items
         |> Some
-        |> getAllArtistAlbums artistId
+        |> getAllArtistAlbums artist
 
-let rec getAllAlbumTracks (albumId: string) (page: PagesOf<AlbumTrack> option) =
+let rec getAllAlbumTracks (album: Album) (page: PageOf<AlbumTrack> option) =
     let previousPage =
         match page with
         | Some page -> page
         | None ->
-            sprintf "%s/albums/%s/tracks?limit=50" BASE_URL albumId
+            sprintf "%s/albums/%s/tracks?limit=50" BASE_URL album.id
             |> GET
-            |> parseResponse<PagesOf<AlbumTrack>>
+            |> parseResponse<PageOf<AlbumTrack>>
 
     match previousPage.next with
     | null -> previousPage
     | url ->
         GET url
-        |> parseResponse<PagesOf<AlbumTrack>>
+        |> parseResponse<PageOf<AlbumTrack>>
         |> prependPagesOf<AlbumTrack> previousPage.items
         |> Some
-        |> getAllAlbumTracks albumId
+        |> getAllAlbumTracks album
 
 
 let getSavedTracks (limit: int) (offset: int) =
@@ -99,28 +102,29 @@ let getSavedTracks (limit: int) (offset: int) =
 
     sprintf "%s/me/tracks?limit=%d&offset=%d" BASE_URL bLimit bOffset
     |> GET
-    |> parseResponse<PagesOf<SavedTrack>>
+    |> parseResponse<PageOf<SavedTrack>>
 
-let rec getAllSavedTracks (page: PagesOf<SavedTrack> option) =
+let rec getAllSavedTracks (page: PageOf<SavedTrack> option) =
     let previousPage =
         match page with
         | Some page -> page
         | None ->
             sprintf "%s/me/tracks?limit=50" BASE_URL
             |> GET
-            |> parseResponse<PagesOf<SavedTrack>>
+            |> parseResponse<PageOf<SavedTrack>>
 
     match previousPage.next with
     | null -> previousPage
     | url ->
         GET url
-        |> parseResponse<PagesOf<SavedTrack>>
+        |> parseResponse<PageOf<SavedTrack>>
         |> prependPagesOf<SavedTrack> previousPage.items
         |> Some
         |> getAllSavedTracks
 
-let deleteSavedTracks (trackIds: list<string>) =
-    trackIds
+let deleteSavedTracks (trackList: list<SavedTrack>) =
+    trackList
+    |> List.map (fun savedTrack -> savedTrack.track.id)
     |> List.chunkBySize 50
     |> List.iter (fun chunk ->
         ("", chunk)
@@ -128,3 +132,55 @@ let deleteSavedTracks (trackIds: list<string>) =
         |> sprintf "%s/me/tracks?ids=%s" BASE_URL
         |> DELETE
         |> printfn "%s")
+
+let createPlaylist (user: User) (name: string) =
+    {| name = name |}
+    |> POST(sprintf "%s/users/%s/playlists" BASE_URL user.id)
+    |> parseResponse<Playlist>
+
+
+let addTracksToPlaylist (playlist: Playlist) (trackList: list<Track>) =
+    trackList
+    |> List.chunkBySize 100
+    |> List.iter (fun chunk ->
+        {| uris = chunk |> List.map (fun track -> sprintf "spotify:track:%s" track.id) |}
+        |> POST(sprintf "%s/playlists/%s/tracks" BASE_URL playlist.id)
+        |> ignore
+
+        printfn "POST chunk success")
+
+let rec getAllCurrentUserPlaylists (page: PageOf<SimplePlaylist> option) =
+    let previousPage =
+        match page with
+        | Some page -> page
+        | None ->
+            sprintf "%s/me/playlists?limit=50" BASE_URL
+            |> GET
+            |> parseResponse<PageOf<SimplePlaylist>>
+
+    match previousPage.next with
+    | null -> previousPage
+    | url ->
+        GET url
+        |> parseResponse<PageOf<SimplePlaylist>>
+        |> prependPagesOf<SimplePlaylist> previousPage.items
+        |> Some
+        |> getAllCurrentUserPlaylists
+
+let rec getAllPlaylistTracks (playlist: Playlist) (page: PageOf<SavedTrack> option) =
+    let previousPage =
+        match page with
+        | Some page -> page
+        | None ->
+            sprintf "%s/playlist/%s/tracks?limit=50" BASE_URL playlist.id
+            |> GET
+            |> parseResponse<PageOf<SavedTrack>>
+
+    match previousPage.next with
+    | null -> previousPage
+    | url ->
+        GET url
+        |> parseResponse<PageOf<SavedTrack>>
+        |> prependPagesOf<SavedTrack> previousPage.items
+        |> Some
+        |> getAllPlaylistTracks playlist

@@ -2,13 +2,15 @@ module Parsers
 
 open System.Text.Json
 
-type PagesOf<'Item> =
+type PageOf<'Item> =
     { limit: int
       next: string
       offset: int
       previous: string
       total: int
       items: list<'Item> }
+
+type User = { id: string }
 
 type Artist = { id: string; name: string }
 
@@ -43,12 +45,17 @@ type SavedTrack = { added_at: string; track: Track }
 type Playlist =
     { id: string
       name: string
-      tracks: PagesOf<SavedTrack> }
+      tracks: PageOf<SavedTrack> }
 
-type TrackSearch = { tracks: PagesOf<Track> }
-type AlbumSearch = { albums: PagesOf<Album> }
-type ArtistSearch = { artists: PagesOf<Artist> }
-type PlaylistSearch = { playlists: PagesOf<Playlist> }
+type SimplePlaylist =
+    { id: string
+      name: string
+      tracks: {| total: int |} }
+
+type TrackSearch = { tracks: PageOf<Track> }
+type AlbumSearch = { albums: PageOf<Album> }
+type ArtistSearch = { artists: PageOf<Artist> }
+type PlaylistSearch = { playlists: PageOf<Playlist> }
 
 
 type ParsedItem =
