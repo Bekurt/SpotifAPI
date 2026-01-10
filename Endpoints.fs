@@ -74,3 +74,47 @@ let rec getAllArtistAlbums (artistId: string) (page: PagesOf<Album> option) =
         |> prependPagesOf<Album> previousPage.items
         |> Some
         |> getAllArtistAlbums artistId
+
+let rec getAllAlbumTracks (albumId: string) (page: PagesOf<AlbumTrack> option) =
+    let previousPage =
+        match page with
+        | Some page -> page
+        | None ->
+            sprintf "%s/albums/%s/tracks?limit=50" BASE_URL albumId
+            |> GET
+            |> parseResponse<PagesOf<AlbumTrack>>
+
+    match previousPage.next with
+    | null -> previousPage
+    | url ->
+        GET url
+        |> parseResponse<PagesOf<AlbumTrack>>
+        |> prependPagesOf<AlbumTrack> previousPage.items
+        |> Some
+        |> getAllAlbumTracks albumId
+
+
+let getSavedTracks (limit: int) (offset: int) =
+    let bLimit, bOffset = bindLimitOffset 50 limit offset
+
+    sprintf "%s/me/tracks?limit=%d&offset=%d" BASE_URL bLimit bOffset
+    |> GET
+    |> parseResponse<PagesOf<SavedTrack>>
+
+let rec getAllSavedTracks (page: PagesOf<SavedTrack> option) =
+    let previousPage =
+        match page with
+        | Some page -> page
+        | None ->
+            sprintf "%s/me/tracks?limit=50" BASE_URL
+            |> GET
+            |> parseResponse<PagesOf<SavedTrack>>
+
+    match previousPage.next with
+    | null -> previousPage
+    | url ->
+        GET url
+        |> parseResponse<PagesOf<SavedTrack>>
+        |> prependPagesOf<SavedTrack> previousPage.items
+        |> Some
+        |> getAllSavedTracks
