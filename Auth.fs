@@ -149,7 +149,7 @@ let refreshToken () =
                 let newBody =
                     JsonSerializer.Serialize
                         { serBody with
-                            access_token = oldToken.access_token }
+                            refresh_token = oldToken.refresh_token }
 
                 File.WriteAllText("./token.json", newBody)
             | str -> File.WriteAllText("./token.json", JsonSerializer.Serialize str)
