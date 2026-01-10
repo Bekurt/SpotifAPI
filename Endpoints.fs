@@ -134,7 +134,7 @@ let createPlaylist (user: User) (name: string) =
     |> parseResponse<Playlist>
 
 
-let addTracksToPlaylist (playlist: Playlist) (trackList: list<Track>) =
+let addTracksToPlaylist (playlist: SimplePlaylist) (trackList: list<Track>) =
     trackList
     |> List.chunkBySize 100
     |> List.iter (fun chunk ->
@@ -162,7 +162,7 @@ let rec getAllCurrentUserPlaylists (page: PageOf<SimplePlaylist> option) =
         |> Some
         |> getAllCurrentUserPlaylists
 
-let rec getAllPlaylistTracks (playlist: Playlist) (page: PageOf<SavedTrack> option) =
+let rec getAllPlaylistTracks (playlist: SimplePlaylist) (page: PageOf<SavedTrack> option) =
     let previousPage =
         match page with
         | Some page -> page
@@ -184,7 +184,7 @@ type DeletePlaylistTrackBody =
     { tracks: list<{| uri: string |}>
       snapshot_id: string }
 
-let rec deletePlaylistTracks (playlist: Playlist) (snap_id: string) (trackList: list<Track>) =
+let rec deletePlaylistTracks (playlist: SimplePlaylist) (snap_id: string) (trackList: list<Track>) =
     let assembleBody (processedChunk: list<{| uri: string |}>) : DeletePlaylistTrackBody =
         { tracks = processedChunk
           snapshot_id = snap_id }
@@ -198,7 +198,7 @@ let rec deletePlaylistTracks (playlist: Playlist) (snap_id: string) (trackList: 
             |> List.map (fun track -> {| uri = sprintf "spotify:track:%s" track.id |})
             |> assembleBody
             |> DELETE<DeletePlaylistTrackBody>(sprintf "%s/playlists/%s/tracks" BASE_URL playlist.id)
-            |> parseResponse<Playlist>
+            |> parseResponse<SimplePlaylist>
 
         rest
         |> List.fold (fun state item -> state @ item) []
