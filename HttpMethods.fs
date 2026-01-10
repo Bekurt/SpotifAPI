@@ -20,7 +20,6 @@ let rec GET (url: string) =
 
     task {
         client |> setBearerToken
-        printfn "HEADER: %s" (client.DefaultRequestHeaders.Authorization.ToString())
 
         let! response = client.GetAsync url
 
@@ -59,8 +58,16 @@ let rec POST<'T> (url: string) (body: 'T) =
             | HttpStatusCode.Unauthorized ->
                 refreshToken ()
                 POST url body
-            | HttpStatusCode.OK -> response.Content.ToString()
-            | otherCode -> otherCode.ToString() |> sprintf "Failed with %s code"
+            | HttpStatusCode.OK ->
+                response.Content.ReadAsStringAsync()
+                |> Async.AwaitTask
+                |> Async.RunSynchronously
+            | otherCode ->
+                (otherCode.ToString(),
+                 response.Content.ReadAsStringAsync()
+                 |> Async.AwaitTask
+                 |> Async.RunSynchronously)
+                ||> sprintf "Failed with %s code - %s"
 
     }
     |> Async.AwaitTask
@@ -81,8 +88,16 @@ let rec PUT<'T> (url: string) (body: 'T) =
             | HttpStatusCode.Unauthorized ->
                 refreshToken ()
                 PUT url body
-            | HttpStatusCode.OK -> response.Content.ToString()
-            | otherCode -> otherCode.ToString() |> sprintf "Failed with %s code"
+            | HttpStatusCode.OK ->
+                response.Content.ReadAsStringAsync()
+                |> Async.AwaitTask
+                |> Async.RunSynchronously
+            | otherCode ->
+                (otherCode.ToString(),
+                 response.Content.ReadAsStringAsync()
+                 |> Async.AwaitTask
+                 |> Async.RunSynchronously)
+                ||> sprintf "Failed with %s code - %s"
 
     }
     |> Async.AwaitTask
@@ -101,8 +116,16 @@ let rec DELETE (url: string) =
             | HttpStatusCode.Unauthorized ->
                 refreshToken ()
                 DELETE url
-            | HttpStatusCode.OK -> response.Content.ToString()
-            | otherCode -> otherCode.ToString() |> sprintf "Failed with %s code"
+            | HttpStatusCode.OK ->
+                response.Content.ReadAsStringAsync()
+                |> Async.AwaitTask
+                |> Async.RunSynchronously
+            | otherCode ->
+                (otherCode.ToString(),
+                 response.Content.ReadAsStringAsync()
+                 |> Async.AwaitTask
+                 |> Async.RunSynchronously)
+                ||> sprintf "Failed with %s code - %s"
 
     }
     |> Async.AwaitTask
