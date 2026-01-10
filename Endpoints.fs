@@ -18,62 +18,59 @@ type Item =
         | Playlist -> "playlist"
         | Track -> "track"
 
-let searchAlbum (strToSearch: string) (limit: int option) (offset: int option) =
-    let boundLimit =
-        match limit with
-        | Some l -> l |> min 50 |> max 0
-        | None -> 1
+let bindLimitOffset (maxLimit: int) (limit: int) (offset: int) =
+    limit |> min maxLimit |> max 0, offset |> max 0
 
-    let boundOffset =
-        match offset with
-        | Some o -> o |> max 0
-        | None -> 0
+let prependPagesOf<'T> (itemsToPrepend: list<'T>) (page: PagesOf<'T>) =
+    { page with
+        items = itemsToPrepend @ page.items }
 
-    sprintf "%s/search?q=%s&type=track&limit=%d&offset=%d" BASE_URL strToSearch boundLimit boundOffset
+let searchAlbum (limit: int) (offset: int) (strToSearch: string) =
+    let bLimit, bOffset = bindLimitOffset 50 limit offset
+
+    sprintf "%s/search?q=%s&type=track&limit=%d&offset=%d" BASE_URL strToSearch bLimit bOffset
     |> GET
     |> parseResponse<AlbumSearch>
 
-let searchArtist (strToSearch: string) (limit: int option) (offset: int option) =
-    let boundLimit =
-        match limit with
-        | Some l -> l |> min 50 |> max 0
-        | None -> 1
+let searchArtist (limit: int) (offset: int) (strToSearch: string) =
+    let bLimit, bOffset = bindLimitOffset 50 limit offset
 
-    let boundOffset =
-        match offset with
-        | Some o -> o |> max 0
-        | None -> 0
-
-    sprintf "%s/search?q=%s&type=track&limit=%d&offset=%d" BASE_URL strToSearch boundLimit boundOffset
+    sprintf "%s/search?q=%s&type=track&limit=%d&offset=%d" BASE_URL strToSearch bLimit bOffset
     |> GET
     |> parseResponse<ArtistSearch>
 
-let searchPlaylist (strToSearch: string) (limit: int option) (offset: int option) =
-    let boundLimit =
-        match limit with
-        | Some l -> l |> min 50 |> max 0
-        | None -> 1
+let searchPlaylist (limit: int) (offset: int) (strToSearch: string) =
+    let bLimit, bOffset = bindLimitOffset 50 limit offset
 
-    let boundOffset =
-        match offset with
-        | Some o -> o |> max 0
-        | None -> 0
-
-    sprintf "%s/search?q=%s&type=track&limit=%d&offset=%d" BASE_URL strToSearch boundLimit boundOffset
+    sprintf "%s/search?q=%s&type=track&limit=%d&offset=%d" BASE_URL strToSearch bLimit bOffset
     |> GET
     |> parseResponse<PlaylistSearch>
 
-let searchTrack (strToSearch: string) (limit: int option) (offset: int option) =
-    let boundLimit =
-        match limit with
-        | Some l -> l |> min 50 |> max 0
-        | None -> 1
+let searchTrack (limit: int) (offset: int) (strToSearch: string) =
+    let bLimit, bOffset = bindLimitOffset 50 limit offset
 
-    let boundOffset =
-        match offset with
-        | Some o -> o |> max 0
-        | None -> 0
-
-    sprintf "%s/search?q=%s&type=track&limit=%d&offset=%d" BASE_URL strToSearch boundLimit boundOffset
+    sprintf "%s/search?q=%s&type=track&limit=%d&offset=%d" BASE_URL strToSearch bLimit bOffset
     |> GET
     |> parseResponse<TrackSearch>
+
+let getArtistAlbum (limit: int) (offset: int) (artistId: string) =
+    let bLimit, bOffset = bindLimitOffset 50 limit offset
+
+    sprintf "%s/artists/%s/albums?include_groups=album&limit=%d&offset=%d" BASE_URL artistId bLimit bOffset
+    |> GET
+    |> parseResponse<PagesOf<Album>>
+
+let rec getAllArtistAlbums (artistId: string) (page: PagesOf<Album> option) =
+    let previousPage =
+        match page with
+        | Some page -> page
+        | None -> getArtistAlbum 50 0 artistId
+
+    match previousPage.next with
+    | null -> previousPage
+    | url ->
+        GET url
+        |> parseResponse<PagesOf<Album>>
+        |> prependPagesOf<Album> previousPage.items
+        |> Some
+        |> getAllArtistAlbums artistId
