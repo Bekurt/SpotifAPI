@@ -54,6 +54,8 @@ type SimplePlaylist =
       snapshot_id: string
       tracks: {| total: int |} }
 
+type PlaylistTrack = { added_at: string; item: Track }
+
 type TrackSearch = { tracks: PageOf<Track> }
 type AlbumSearch = { albums: PageOf<Album> }
 type ArtistSearch = { artists: PageOf<Artist> }
@@ -70,4 +72,7 @@ type ParsedItem =
 type ParsedResponse = list<ParsedItem>
 
 let parseResponse<'T> (APIresponse: string) =
+    if APIresponse.StartsWith "F" then
+        printfn "%s" APIresponse
+
     JsonSerializer.Deserialize<'T> APIresponse

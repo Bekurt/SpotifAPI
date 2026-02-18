@@ -162,21 +162,21 @@ let rec getAllCurrentUserPlaylists (page: PageOf<SimplePlaylist> option) =
         |> Some
         |> getAllCurrentUserPlaylists
 
-let rec getAllPlaylistTracks (playlist: SimplePlaylist) (page: PageOf<SavedTrack> option) =
+let rec getAllPlaylistTracks (playlist: SimplePlaylist) (page: PageOf<PlaylistTrack> option) =
     let previousPage =
         match page with
         | Some page -> page
         | None ->
-            sprintf "%s/playlist/%s/tracks?limit=50" BASE_URL playlist.id
+            sprintf "%s/playlists/%s/items?limit=100" BASE_URL playlist.id
             |> GET
-            |> parseResponse<PageOf<SavedTrack>>
+            |> parseResponse<PageOf<PlaylistTrack>>
 
     match previousPage.next with
     | null -> previousPage
     | url ->
         GET url
-        |> parseResponse<PageOf<SavedTrack>>
-        |> prependPagesOf<SavedTrack> previousPage.items
+        |> parseResponse<PageOf<PlaylistTrack>>
+        |> prependPagesOf<PlaylistTrack> previousPage.items
         |> Some
         |> getAllPlaylistTracks playlist
 
@@ -197,7 +197,7 @@ let rec deletePlaylistTracks (playlist: SimplePlaylist) (snap_id: string) (track
             first
             |> List.map (fun track -> {| uri = sprintf "spotify:track:%s" track.id |})
             |> assembleBody
-            |> DELETE<DeletePlaylistTrackBody>(sprintf "%s/playlists/%s/tracks" BASE_URL playlist.id)
+            |> DELETE<DeletePlaylistTrackBody>(sprintf "%s/playlists/%s/items" BASE_URL playlist.id)
             |> parseResponse<SimplePlaylist>
 
         rest
