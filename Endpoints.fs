@@ -31,21 +31,21 @@ let getCurrentUser () =
 let searchAlbum (limit: int) (offset: int) (strToSearch: string) =
     let bLimit, bOffset = bindLimitOffset 50 limit offset
 
-    sprintf "%s/search?q=%s&type=track&limit=%d&offset=%d" BASE_URL strToSearch bLimit bOffset
+    sprintf "%s/search?q=%s&type=album&limit=%d&offset=%d" BASE_URL strToSearch bLimit bOffset
     |> GET
     |> parseResponse<AlbumSearch>
 
 let searchArtist (limit: int) (offset: int) (strToSearch: string) =
     let bLimit, bOffset = bindLimitOffset 50 limit offset
 
-    sprintf "%s/search?q=%s&type=track&limit=%d&offset=%d" BASE_URL strToSearch bLimit bOffset
+    sprintf "%s/search?q=%s&type=artist&limit=%d&offset=%d" BASE_URL strToSearch bLimit bOffset
     |> GET
     |> parseResponse<ArtistSearch>
 
 let searchPlaylist (limit: int) (offset: int) (strToSearch: string) =
     let bLimit, bOffset = bindLimitOffset 50 limit offset
 
-    sprintf "%s/search?q=%s&type=track&limit=%d&offset=%d" BASE_URL strToSearch bLimit bOffset
+    sprintf "%s/search?q=%s&type=playlist&limit=%d&offset=%d" BASE_URL strToSearch bLimit bOffset
     |> GET
     |> parseResponse<PlaylistSearch>
 
