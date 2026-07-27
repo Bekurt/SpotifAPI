@@ -8,6 +8,8 @@ open System.Diagnostics
 open System.Text.Json
 open System.IO
 open System.Text
+open System.Security.Cryptography
+open System.Text.RegularExpressions
 
 type AuthBody =
     { grant_type: string
@@ -21,11 +23,27 @@ type AccessToken =
       expires_in: int
       refresh_token: string }
 
+let generateCodeVerifier (length: int) =
+    let chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+
+    [ 1..length ]
+    |> List.map (fun n -> chars[Random().Next(1, 62)])
+    |> List.fold (fun code nextChar -> sprintf "%s%c" code nextChar) ""
+
+let generateCodeChallenge (codeVerifier: string) =
+    (SHA256.Create().ComputeHash(Encoding.UTF8.GetBytes codeVerifier)
+     |> Convert.ToBase64String)
+        .Replace("+", "-")
+        .Replace("/", "_")
+        .Replace("=", "")
+
 let requestAuthorization () =
     let client_id = Environment.GetEnvironmentVariable "SPOTIFY_CLIENT_ID"
     let response_type = "code"
     let redirect_uri = "http://127.0.0.1:5000"
     let state = Random().Next(9999).ToString()
+    let codeVerifier = generateCodeVerifier 64
+    let codeChallenge = generateCodeChallenge codeVerifier
 
     let scope =
         "user-read-private"
@@ -39,12 +57,14 @@ let requestAuthorization () =
 
     let url =
         sprintf
-            "client_id=%s&response_type=%s&redirect_uri=%s&state=%s&scope=%s"
+            "client_id=%s&response_type=%s&redirect_uri=%s&state=%s&scope=%s&code_challenge_method=%s&code_challenge=%s"
             (Uri.EscapeDataString client_id)
             (Uri.EscapeDataString response_type)
             (Uri.EscapeDataString redirect_uri)
             (Uri.EscapeDataString state)
             (Uri.EscapeDataString scope)
+            (Uri.EscapeDataString "S256")
+            (Uri.EscapeDataString codeChallenge)
         |> sprintf "https://accounts.spotify.com/authorize?%s"
 
 
@@ -91,10 +111,11 @@ let requestAuthorization () =
             let form =
                 [ KeyValuePair<string, string>("grant_type", "authorization_code")
                   KeyValuePair<string, string>("code", code)
-                  KeyValuePair<string, string>("redirect_uri", redirect_uri) ]
+                  KeyValuePair<string, string>("redirect_uri", redirect_uri)
+                  KeyValuePair<string, string>("client_id", client_id)
+                  KeyValuePair<string, string>("code_verifier", codeVerifier) ]
 
             request.Content <- new FormUrlEncodedContent(form)
-            request.Headers.Authorization <- Headers.AuthenticationHeaderValue("Basic", encodedSecrets)
 
             use! resp = request |> http.SendAsync
             let! body = resp.Content.ReadAsStringAsync()
@@ -131,7 +152,8 @@ let refreshToken () =
 
         let form =
             [ KeyValuePair<string, string>("grant_type", "refresh_token")
-              KeyValuePair<string, string>("refresh_token", oldToken.refresh_token) ]
+              KeyValuePair<string, string>("refresh_token", oldToken.refresh_token)
+              KeyValuePair<string, string>("cliend_id", client_id) ]
 
         request.Content <- new FormUrlEncodedContent(form)
         request.Headers.Authorization <- Headers.AuthenticationHeaderValue("Basic", encodedSecrets)
