@@ -144,6 +144,12 @@ let addTracksToPlaylist (playlistId: string) (trackIdList: list<string>) =
 
         printfn "POST chunk success")
 
+let getUserPlaylist (playlistId: string) =
+
+    sprintf "%s/playlists/%s" BASE_URL playlistId
+    |> GET
+    |> parseResponse<SimplePlaylist>
+
 let rec getAllCurrentUserPlaylists (page: PageOf<SimplePlaylist> option) =
     let previousPage =
         match page with
@@ -181,12 +187,12 @@ let rec getAllPlaylistTracks (playlistId: string) (page: PageOf<PlaylistTrack> o
         |> getAllPlaylistTracks playlistId
 
 type DeletePlaylistTrackBody =
-    { tracks: list<{| uri: string |}>
+    { items: list<{| uri: string |}>
       snapshot_id: string }
 
 let rec deletePlaylistTracks (playlistId: string) (snap_id: string) (trackIdList: list<string>) =
     let assembleBody (processedChunk: list<{| uri: string |}>) : DeletePlaylistTrackBody =
-        { tracks = processedChunk
+        { items = processedChunk
           snapshot_id = snap_id }
 
     let chunkedList = trackIdList |> List.chunkBySize 100
