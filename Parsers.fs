@@ -46,7 +46,7 @@ type Playlist =
     { id: string
       name: string
       snapshot_id: string
-      tracks: PageOf<SavedTrack> }
+      items: PageOf<SavedTrack> }
 
 type SimplePlaylist =
     { id: string
