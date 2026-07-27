@@ -8,6 +8,8 @@ open Endpoints
 open System.IO
 open System.Text.Json
 
+let ALL_SONGS = "5WX5E1boHIKZ3w1Vhbxpva"
+
 let printResult<'T> (response: 'T) =
     let options = JsonSerializerOptions(WriteIndented = true)
     let text = JsonSerializer.Serialize(response, options)
@@ -24,19 +26,15 @@ let writeJson<'T> (file: string option) (response: 'T) =
 let readJson<'T> (file: string) =
     File.ReadAllText file |> JsonSerializer.Deserialize<'T>
 
-let getAllCurrentTracks () =
-    let currentPlaylists = getAllCurrentUserPlaylists None
+let getAllCurrentTracks () = getAllPlaylistTracks ALL_SONGS None
 
-    let getTrackListFromPlaylists (state: PlaylistTrack list) (item: SimplePlaylist) =
-        state @ (getAllPlaylistTracks item.id None).items
+let backupAllSongs () =
+    getAllCurrentTracks () |> writeJson (Some "saved_backup.json")
 
-    let tracks =
-        currentPlaylists.items
-        |> List.fold getTrackListFromPlaylists []
-        |> writeJson (Some "saved_backup.json")
+let readBackup () =
+    readJson<PageOf<PlaylistTrack>> "saved_backup.json"
 
-    tracks
-
+// Create N playlists with 500 songs each from the library backup
 let createNewPlaylistsFromBackupTracks () =
     let tracks = readJson<string list> "saved_backup.json"
 
@@ -55,37 +53,34 @@ let createNewPlaylistsFromBackupTracks () =
         let p = createPlaylist me (sprintf "Playlist %02d" (idx + 1))
         addTracksToPlaylist p.id chunk)
 
+// Create the playlist "ALL SONGS" from list of track ids
 let createSingleTotalPlaylist (tracksID: string list) =
     let me = getCurrentUser ()
     let newP = createPlaylist me "ALL SONGS"
 
     tracksID |> List.randomShuffle |> addTracksToPlaylist newP.id
 
-// NOTE TO SELF: NEXT TIME BE FUCKING CONSISTENT IN SAVING OUTPUTS!
+let tracksToDelete =
+    readBackup().items
+    |> List.filter (fun item ->
+        let artist = item.item.artists.Head.name
 
-(*
-let SokenArtist = searchArtist 1 0 "Soken"
-let SokenAlbums = getAllArtistAlbums SokenArtist.artists.items[0].id None
-
-let SokenTracks =
-    getAllAlbumTracks SokenAlbums.items[1].id None
-    |> writeJson (Some "z_SokenTracks.json")
-*)
-
-(*
-let jusArtist = searchArtist 2 0 "Justefunk Funk"
-let jusAlbums = getAllArtistAlbums jusArtist.artists.items[0].id None
-
-let jusTracks =
-    jusAlbums.items
-    |> List.fold (fun state album -> state @ (getAllAlbumTracks album.id None).items) []
-    |> writeJson (Some "z_jusTracks.json")
-*)
+        artist.Contains "Beatles"
+        || artist.Contains "Who"
+        || artist.Contains "Linkin Park"
+        || artist.Contains "Florence"
+        || artist.Contains "Queen"
+        || artist.Contains "Sheeran")
+    |> List.map (fun item -> item.item.id)
 
 
-(readJson<PlaylistTrack list> "saved_backup.json"
- |> List.map (fun pt -> pt.item.id))
-@ (readJson<AlbumTrack list> "z_jusTracks.json" |> List.map (fun track -> track.id))
-@ ((readJson<PageOf<AlbumTrack>> "z_SokenTracks.json").items
-   |> List.map (fun track -> track.id))
-|> createSingleTotalPlaylist
+let artistList =
+    readBackup().items
+    |> List.map (fun item -> item.item.artists.Head.name)
+    |> List.distinct
+
+let currentSnapshot = (getUserPlaylist ALL_SONGS).snapshot_id
+
+deletePlaylistTracks ALL_SONGS currentSnapshot tracksToDelete
+
+backupAllSongs ()
