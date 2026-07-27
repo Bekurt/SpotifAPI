@@ -18,8 +18,10 @@ type Item =
         | Playlist -> "playlist"
         | Track -> "track"
 
-let bindLimitOffset (maxLimit: int) (limit: int) (offset: int) =
-    limit |> min maxLimit |> max 0, offset |> max 0
+let SPOTIFY_BATCH_LIMIT = 10
+
+let bindLimitOffset (limit: int) (offset: int) =
+    limit |> min SPOTIFY_BATCH_LIMIT |> max 0, offset |> max 0
 
 let prependPagesOf<'T> (itemsToPrepend: list<'T>) (page: PageOf<'T>) =
     { page with
@@ -29,35 +31,35 @@ let getCurrentUser () =
     BASE_URL |> sprintf "%s/me" |> GET |> parseResponse<User>
 
 let searchAlbum (limit: int) (offset: int) (strToSearch: string) =
-    let bLimit, bOffset = bindLimitOffset 50 limit offset
+    let bLimit, bOffset = bindLimitOffset limit offset
 
     sprintf "%s/search?q=%s&type=album&limit=%d&offset=%d" BASE_URL strToSearch bLimit bOffset
     |> GET
     |> parseResponse<AlbumSearch>
 
 let searchArtist (limit: int) (offset: int) (strToSearch: string) =
-    let bLimit, bOffset = bindLimitOffset 50 limit offset
+    let bLimit, bOffset = bindLimitOffset limit offset
 
     sprintf "%s/search?q=%s&type=artist&limit=%d&offset=%d" BASE_URL strToSearch bLimit bOffset
     |> GET
     |> parseResponse<ArtistSearch>
 
 let searchPlaylist (limit: int) (offset: int) (strToSearch: string) =
-    let bLimit, bOffset = bindLimitOffset 50 limit offset
+    let bLimit, bOffset = bindLimitOffset limit offset
 
     sprintf "%s/search?q=%s&type=playlist&limit=%d&offset=%d" BASE_URL strToSearch bLimit bOffset
     |> GET
     |> parseResponse<PlaylistSearch>
 
 let searchTrack (limit: int) (offset: int) (strToSearch: string) =
-    let bLimit, bOffset = bindLimitOffset 50 limit offset
+    let bLimit, bOffset = bindLimitOffset limit offset
 
     sprintf "%s/search?q=%s&type=track&limit=%d&offset=%d" BASE_URL strToSearch bLimit bOffset
     |> GET
     |> parseResponse<TrackSearch>
 
 let getArtistAlbum (limit: int) (offset: int) (artistId: string) =
-    let bLimit, bOffset = bindLimitOffset 50 limit offset
+    let bLimit, bOffset = bindLimitOffset limit offset
 
     sprintf "%s/artists/%s/albums?include_groups=album&limit=%d&offset=%d" BASE_URL artistId bLimit bOffset
     |> GET
@@ -67,7 +69,7 @@ let rec getAllArtistAlbums (artistId: string) (page: PageOf<Album> option) =
     let previousPage =
         match page with
         | Some page -> page
-        | None -> getArtistAlbum 50 0 artistId
+        | None -> getArtistAlbum SPOTIFY_BATCH_LIMIT 0 artistId
 
     match previousPage.next with
     | null -> previousPage
@@ -83,7 +85,7 @@ let rec getAllAlbumTracks (albumId: string) (page: PageOf<AlbumTrack> option) =
         match page with
         | Some page -> page
         | None ->
-            sprintf "%s/albums/%s/tracks?limit=50" BASE_URL albumId
+            sprintf "%s/albums/%s/tracks?limit=%d" BASE_URL albumId SPOTIFY_BATCH_LIMIT
             |> GET
             |> parseResponse<PageOf<AlbumTrack>>
 
@@ -98,7 +100,7 @@ let rec getAllAlbumTracks (albumId: string) (page: PageOf<AlbumTrack> option) =
 
 
 let getSavedTracks (limit: int) (offset: int) =
-    let bLimit, bOffset = bindLimitOffset 50 limit offset
+    let bLimit, bOffset = bindLimitOffset limit offset
 
     sprintf "%s/me/tracks?limit=%d&offset=%d" BASE_URL bLimit bOffset
     |> GET
@@ -109,7 +111,7 @@ let rec getAllSavedTracks (page: PageOf<SavedTrack> option) =
         match page with
         | Some page -> page
         | None ->
-            sprintf "%s/me/tracks?limit=50" BASE_URL
+            sprintf "%s/me/tracks?limit=%d" BASE_URL SPOTIFY_BATCH_LIMIT
             |> GET
             |> parseResponse<PageOf<SavedTrack>>
 
@@ -124,7 +126,7 @@ let rec getAllSavedTracks (page: PageOf<SavedTrack> option) =
 
 let deleteSavedTracks (trackIdList: list<string>) =
     trackIdList
-    |> List.chunkBySize 50
+    |> List.chunkBySize SPOTIFY_BATCH_LIMIT
     |> List.iter (fun chunk -> {| ids = chunk |} |> DELETE(sprintf "%s/me/tracks" BASE_URL) |> printfn "%s")
 
 let createPlaylist (user: User) (name: string) =
@@ -147,7 +149,7 @@ let rec getAllCurrentUserPlaylists (page: PageOf<SimplePlaylist> option) =
         match page with
         | Some page -> page
         | None ->
-            sprintf "%s/me/playlists?limit=50" BASE_URL
+            sprintf "%s/me/playlists?limit=%d" BASE_URL SPOTIFY_BATCH_LIMIT
             |> GET
             |> parseResponse<PageOf<SimplePlaylist>>
 
